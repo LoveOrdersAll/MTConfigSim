@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meshtastic Node Simulator Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .slide-out { transition: transform 0.3s ease-in-out; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans p-6 overflow-x-hidden">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8 border-b border-gray-800 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-green-400">Meshtastic Node Simulator</h1>
+                <p class="text-gray-400 mt-1">Virtual Staging & Network Configuration Planning</p>
+            </div>
+            <button id="add-node-btn" class="bg-green-600 hover:bg-green-500 text-white font-semibold py-2 px-5 rounded-lg transition shadow-md self-start sm:self-center">
+                + Add New Node
+            </button>
+        </header>
+
+        <div id="node-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"></div>
+    </div>
+
+    <div id="side-panel-overlay" class="fixed inset-0 bg-black/50 hidden z-40" onclick="closeConfigPanel()"></div>
+
+    <div id="side-panel" class="fixed top-0 right-0 h-full w-full max-w-lg bg-gray-800 border-l border-gray-700 shadow-2xl z-50 transform translate-x-full slide-out flex flex-col">
+        <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-850">
+            <div>
+                <h2 id="panel-node-title" class="text-xl font-bold text-white">Configure Node</h2>
+                <p class="text-xs text-gray-400">Editing Virtual Configuration Slot</p>
+            </div>
+            <button onclick="closeConfigPanel()" class="text-gray-400 hover:text-white text-2xl font-bold px-2">&times;</button>
+        </div>
+
+        <div class="flex border-b border-gray-700 bg-gray-900 text-xs font-mono overflow-x-auto">
+            <button onclick="switchTab('device')" id="tab-btn-device" class="py-3 px-4 border-b-2 border-green-500 text-green-400 font-bold whitespace-nowrap">DEVICE</button>
+            <button onclick="switchTab('position')" id="tab-btn-position" class="py-3 px-4 border-b-2 border-transparent text-gray-400 hover:text-gray-200 whitespace-nowrap">POSITION</button>
+            <button onclick="switchTab('power')" id="tab-btn-power" class="py-3 px-4 border-b-2 border-transparent text-gray-400 hover:text-gray-200 whitespace-nowrap">POWER</button>
+            <button onclick="switchTab('lora')" id="tab-btn-lora" class="py-3 px-4 border-b-2 border-transparent text-gray-400 hover:text-gray-200 whitespace-nowrap">LORA</button>
+            <button onclick="switchTab('advisor')" id="tab-btn-advisor" class="py-3 px-4 border-b-2 border-transparent text-amber-400 hover:text-amber-300 font-bold whitespace-nowrap">⚡ LINUX ADVISOR</button>
+        </div>
+
+        <div class="p-6 flex-1 overflow-y-auto space-y-6 text-sm">
+            <input type="hidden" id="current-node-id">
+
+            <div id="tab-device" class="tab-content active space-y-4">
+                <div>
+                    <label class="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">Node Name</label>
+                    <input type="text" id="input-name" oninput="updateCurrentNode()" class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 text-white focus:outline-none focus:border-green-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">Device Role</label>
+                    <select id="input-role" onchange="updateCurrentNode()" class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 text-white focus:outline-none focus:border-green-500">
+                        <option value="CLIENT">CLIENT</option>
+                        <option value="ROUTER">ROUTER</option>
+                        <option value="REPEATER">REPEATER</option>
+                        <option value="ROUTER_CLIENT">ROUTER_CLIENT</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="tab-position" class="tab-content space-y-4">
+                <div class="flex items-center justify-between p-2.5 bg-gray-900 border border-gray-700 rounded">
+                    <span class="text-gray-300">Fixed Position (GPS Disabled)</span>
+                    <input type="checkbox" class="w-4 h-4 accent-green-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">Latitude</label>
+                    <input type="text" placeholder="35.1482" class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 text-white focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">Longitude</label>
+                    <input type="text" placeholder="-96.3984" class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 text-white focus:outline-none">
+                </div>
+            </div>
+
+            <div id="tab-power" class="tab-content space-y-4">
+                <div class="flex items-center justify-between p-2.5 bg-gray-900 border border-gray-700 rounded">
+                    <span class="text-gray-300">Is Low Power Mode</span>
+                    <input type="checkbox" class="w-4 h-4 accent-green-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">ADC Multiplier</label>
+                    <input type="number" value="3.2" step="0.1" class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 text-white focus:outline-none">
+                </div>
+            </div>
+
+            <div id="tab-lora" class="tab-content space-y-4">
+                <div>
+                    <label class="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">Region Frequency</label>
+                    <select class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 text-white focus:outline-none">
+                        <option>US_915</option>
+                        <option>EU_868</option>
+                        <option>ANZ_915</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-2">Modem Preset</label>
+                    <select class="w-full bg-gray-900 border border-gray-700 rounded p-2.5 text-white focus:outline-none">
+                        <option>LongFast</option>
+                        <option>LongModerate</option>
+                        <option>ShortFast</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="tab-advisor" class="tab-content space-y-5">
+                <div class="p-3 bg-amber-950/40 border border-amber-800 text-amber-300 rounded-lg text-xs leading-relaxed">
+                    <strong>Deployment Context:</strong> This guide ensures your Linux system interfaces correctly with the node data streams over USB serial connections or network-mapped brokers.
+                </div>
+
+                <div class="space-y-2">
+                    <h3 class="text-xs font-mono uppercase text-gray-400 tracking-wider">1. Apply Node Configuration via Python CLI</h3>
+                    <p class="text-xs text-gray-400">Ensure the node properties match your simulation settings over local USB:</p>
+                    <div class="bg-gray-900 p-3 rounded font-mono text-xs text-green-400 border border-gray-700 overflow-x-auto select-all">
+                        pip install meshtastic<br>
+                        meshtastic --set owner.name "<span class="node-placeholder-name">Node</span>" --set device.role <span id="node-placeholder-role">CLIENT</span>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <h3 class="text-xs font-mono uppercase text-gray-400 tracking-wider">2. Fix Hardware Serial TTY Permissions</h3>
+                    <p class="text-xs text-gray-400">If interacting via serial terminal on Linux, grant access to the dialout group:</p>
+                    <div class="bg-gray-900 p-3 rounded font-mono text-xs text-green-400 border border-gray-700 overflow-x-auto select-all">
+                        sudo usermod -a -G dialout $USER<br>
+                        # Log out and log back in for changes to apply
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <h3 class="text-xs font-mono uppercase text-gray-400 tracking-wider">3. Live MQTT Stream Inspection (Mosquitto)</h3>
+                    <p class="text-xs text-gray-400">To monitor live node telemetry and payloads passing through your gateway broker:</p>
+                    <div class="bg-gray-900 p-3 rounded font-mono text-xs text-green-400 border border-gray-700 overflow-x-auto select-all">
+                        # Subscribe to all JSON/Protobuf packets under the regional root mesh topic<br>
+                        mosquitto_sub -h localhost -t "msh/US/2/c/#" -v
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <h3 class="text-xs font-mono uppercase text-gray-400 tracking-wider">4. Automated Node Data Logger Service</h3>
+                    <p class="text-xs text-gray-400">Create a persistent systemd daemon loop to record background JSON traffic:</p>
+                    <div class="bg-gray-900 p-3 rounded font-mono text-xs text-gray-300 border border-gray-700 overflow-x-auto max-h-40 overflow-y-auto">
+<pre class="text-[11px] font-mono">[Unit]
+Description=Meshtastic MQTT Logger
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 -m meshtastic.mqtt_logger --host localhost --topic msh/US/2/c
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-4 border-t border-gray-700 bg-gray-900 flex gap-3">
+            <button onclick="closeConfigPanel()" class="flex-1 bg-green-600 hover:bg-green-500 text-white font-semibold py-2 rounded transition">Save Settings</button>
+        </div>
+    </div>
+
+    <script>
+        let nodes = [
+            { id: 1, name: "Virtual Node 01", role: "ROUTER", region: "US_915", modemPreset: "LongFast" },
+            { id: 2, name: "Virtual Node 02", role: "CLIENT", region: "US_915", modemPreset: "LongFast" }
+        ];
+
+        const grid = document.getElementById('node-grid');
+        const addBtn = document.getElementById('add-node-btn');
+
+        function renderNodeCard(node) {
+            let card = document.getElementById(`node-card-${node.id}`);
+            if (!card) {
+                card = document.createElement('div');
+                card.id = `node-card-${node.id}`;
+                card.className = "bg-gray-800 border border-gray-700 rounded-xl p-5 hover:border-green-500 transition cursor-pointer shadow-lg flex flex-col justify-between";
+                card.onclick = () => openConfigPanel(node.id);
+                grid.appendChild(card);
+            }
+            
+            card.innerHTML = `
+                <div>
+                    <div class="flex justify-between items-start mb-4 gap-2">
+                        <h2 class="text-xl font-semibold text-white truncate max-w-[180px]">${node.name}</h2>
+                        <span class="px-2 py-1 text-xs font-mono rounded bg-gray-700 text-green-400 border border-gray-600 whitespace-nowrap">${node.role}</span>
+                    </div>
+                    <div class="space-y-1 text-sm text-gray-400 font-mono">
+                        <div><span class="text-gray-500">Region:</span> ${node.region}</div>
+                        <div><span class="text-gray-500">Preset:</span> ${node.modemPreset}</div>
+                    </div>
+                </div>
+                <button class="mt-5 w-full bg-gray-700 hover:bg-green-600 text-white font-medium py-2 rounded transition text-sm">
+                    Configure & Analyze
+                </button>
+            `;
+        }
+
+        nodes.forEach(node => renderNodeCard(node));
+
+        addBtn.addEventListener('click', () => {
+            const nextId = nodes.length > 0 ? Math.max(...nodes.map(n => n.id)) + 1 : 1;
+            const newNode = {
+                id: nextId,
+                name: `Virtual Node ${String(nextId).padStart(2, '0')}`,
+                role: "CLIENT",
+                region: "US_915",
+                modemPreset: "LongFast"
+            };
+            nodes.push(newNode);
+            renderNodeCard(newNode);
+        });
+
+        function openConfigPanel(nodeId) {
+            const node = nodes.find(n => n.id === nodeId);
+            if (!node) return;
+
+            document.getElementById('current-node-id').value = node.id;
+            document.getElementById('panel-node-title').innerText = node.name;
+            document.getElementById('input-name').value = node.name;
+            document.getElementById('input-role').value = node.role;
+
+            document.getElementById('side-panel-overlay').classList.remove('hidden');
+            document.getElementById('side-panel').classList.remove('translate-x-full');
+            
+            updateAdvisorPlaceholders(node);
+            switchTab('device');
+        }
+
+        function closeConfigPanel() {
+            document.getElementById('side-panel-overlay').classList.add('hidden');
+            document.getElementById('side-panel').classList.add('translate-x-full');
+        }
+
+        function updateCurrentNode() {
+            const id = parseInt(document.getElementById('current-node-id').value);
+            const node = nodes.find(n => n.id === id);
+            if (!node) return;
+
+            node.name = document.getElementById('input-name').value || `Node ${id}`;
+            node.role = document.getElementById('input-role').value;
+            
+            document.getElementById('panel-node-title').innerText = node.name;
+            renderNodeCard(node);
+            updateAdvisorPlaceholders(node);
+        }
+
+        function updateAdvisorPlaceholders(node) {
+            document.querySelectorAll('.node-placeholder-name').forEach(el => el.innerText = node.name);
+            document.getElementById('node-placeholder-role').innerText = node.role.toLowerCase();
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+
+            const tabs = ['device', 'position', 'power', 'lora', 'advisor'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-btn-${t}`);
+                if (t === tabName) {
+                    btn.className = "py-3 px-4 border-b-2 " + (t === 'advisor' ? "border-amber-500 text-amber-400" : "border-green-500 text-green-400") + " font-bold text-center whitespace-nowrap";
+                } else {
+                    btn.className = "py-3 px-4 border-b-2 border-transparent text-gray-400 hover:text-gray-200 text-center whitespace-nowrap";
+                }
+            });
+        }
+    </script>
+</body>
+</html>
